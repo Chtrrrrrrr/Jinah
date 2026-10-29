@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/secrets/secret_store.dart';
 import '../../../core/settings/settings_controller.dart';
+import '../../../core/backup/backup_service.dart';
 
 /// 设置：外观（主题/强调色）+ 凭据管理 + 关于。
 class SettingsPage extends ConsumerWidget {
@@ -87,6 +88,41 @@ class SettingsPage extends ConsumerWidget {
             subtitle: '可选，默认 gpt-4o-mini（DeepSeek 填 deepseek-chat）',
             getter: _llmModelGetter,
             setter: _llmModelSetter,
+          ),
+          const SizedBox(height: 24),
+          const _SectionHeader('数据'),
+          Row(
+            children: [
+              FilledButton.tonalIcon(
+                onPressed: () async {
+                  final r = await ref
+                      .read(backupServiceProvider)
+                      .exportToFile();
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(r.describe())),
+                    );
+                  }
+                },
+                icon: const Icon(Icons.upload_outlined, size: 16),
+                label: const Text('导出备份'),
+              ),
+              const SizedBox(width: 12),
+              OutlinedButton.icon(
+                onPressed: () async {
+                  final r = await ref
+                      .read(backupServiceProvider)
+                      .importFromFile();
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(r.describe())),
+                    );
+                  }
+                },
+                icon: const Icon(Icons.download_outlined, size: 16),
+                label: const Text('导入备份'),
+              ),
+            ],
           ),
           const SizedBox(height: 24),
           const _SectionHeader('关于'),

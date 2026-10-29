@@ -33,7 +33,34 @@ class LlmClient {
   Future<String> chat({
     required String systemPrompt,
     required String userPrompt,
-  }) async {
+  }) =>
+      _post([
+        {'role': 'system', 'content': systemPrompt},
+        {'role': 'user', 'content': userPrompt},
+      ]);
+
+  /// 多模态：文本 + 一张图（base64）。用于截图解析（作业通知截图/课表截图）。
+  Future<String> chatWithImage({
+    required String systemPrompt,
+    required String userText,
+    required String imageBase64,
+    String mimeType = 'image/png',
+  }) =>
+      _post([
+        {'role': 'system', 'content': systemPrompt},
+        {
+          'role': 'user',
+          'content': [
+            {'type': 'text', 'text': userText},
+            {
+              'type': 'image_url',
+              'image_url': {'url': 'data:$mimeType;base64,$imageBase64'},
+            },
+          ],
+        },
+      ]);
+
+  Future<String> _post(List<Map<String, Object?>> messages) async {
     final base = _base.replaceAll(RegExp(r'/+$'), '');
     final res = await _dio.post<Map<String, dynamic>>(
       '$base/chat/completions',
@@ -44,10 +71,7 @@ class LlmClient {
       data: {
         'model': _model,
         'temperature': 0,
-        'messages': [
-          {'role': 'system', 'content': systemPrompt},
-          {'role': 'user', 'content': userPrompt},
-        ],
+        'messages': messages,
       },
     );
 

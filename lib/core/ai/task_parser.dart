@@ -55,6 +55,15 @@ String buildUserPrompt({required String rawText, required DateTime now}) {
 
 String _two(int v) => v.toString().padLeft(2, '0');
 
+/// 截图解析的用户消息。
+String buildImageUserPrompt({required DateTime now}) {
+  final local = now.toLocal();
+  final stamp =
+      '${local.year}-${_two(local.month)}-${_two(local.day)} ${_two(local.hour)}:${_two(local.minute)}';
+  return '当前时间：$stamp（UTC+8）\n\n图片内容：老师发的作业通知截图，或一张课程表截图。'
+      '请提取其中的作业任务（课程、标题、截止时间、提交方式）。纯课程表截图若没有作业信息，输出 {"tasks": []}。';
+}
+
 /// 从 LLM 输出中提取第一个 JSON 对象（容忍 markdown 代码围栏和前后废话）。
 String? extractJsonObject(String text) {
   final start = text.indexOf('{');

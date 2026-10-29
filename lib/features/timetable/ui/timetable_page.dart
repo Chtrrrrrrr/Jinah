@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -5,6 +8,8 @@ import '../../../../core/database/database.dart';
 import '../data/timetable_repository.dart';
 import '../domain/term_calendar.dart';
 import '../domain/week_pattern.dart';
+import '../export/ics_export.dart';
+import '../import/open_platform_import.dart';
 import '../import/webview_capture_page.dart';
 
 /// Obsidian 风格的课程配色（低饱和、可区分）。
@@ -99,6 +104,11 @@ class TimetablePage extends ConsumerWidget {
                             .set(null),
                         child: const Text('回到本周'),
                       ),
+                    IconButton(
+                      tooltip: '导出 ICS（导入系统日历）',
+                      icon: const Icon(Icons.download_outlined, size: 18),
+                      onPressed: () => _exportIcs(context, ref, term),
+                    ),
                     const Spacer(),
                     Text(term.name, style: TextStyle(color: muted, fontSize: 12)),
                   ],
@@ -137,6 +147,45 @@ class TimetablePage extends ConsumerWidget {
               ],
             ),
     );
+  }
+
+  Future<void> _exportIcs(BuildContext context, WidgetRef ref, Term term) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final entries = await ref
+          .read(timetableRepositoryProvider)
+          .watchEntries(term.id)
+          .first;
+      final courses = ref.read(coursesMapProvider).value ?? const <String, Course>{};
+      final ics = buildTimetableIcs(
+        term: TermCalendar(
+          calendarId: term.id,
+          name: term.name,
+          year: term.year,
+          term: term.termIndex,
+          firstWeekStart: term.firstWeekStart,
+          endDate: term.endDate,
+          totalWeeks: term.totalWeeks,
+          isCurrent: term.isCurrent,
+        ),
+        courses: courses,
+        entries: entries,
+      );
+      final location = await getSaveLocation(
+        suggestedName: 'jinah-timetable.ics',
+      );
+      if (location == null || !context.mounted) return;
+      await File(location.path).writeAsString(ics);
+      if (context.mounted) {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('ICS 已导出，可导入系统日历')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        messenger.showSnackBar(SnackBar(content: Text('导出失败：$e')));
+      }
+    }
   }
 
   Widget _buildGrid(
@@ -353,17 +402,16 @@ class _ImportHint extends ConsumerWidget {
           ),
           const SizedBox(height: 8),
           OutlinedButton.icon(
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('开放平台 OAuth 导入开发中')),
-              );
+            onPressed: () async {
+              await runOpenPlatformImportFlow(context, ref);
+              ref.read(selectedWeekProvider.notifier).set(null);
             },
             icon: const Icon(Icons.api, size: 16),
             label: const Text('开放平台导入（需 Client ID）'),
           ),
           const SizedBox(height: 8),
           Text(
-            '截图识别导入开发中',
+            '截图识别导入：收件箱 → 导入截图',
             style: TextStyle(color: muted, fontSize: 12),
           ),
         ],

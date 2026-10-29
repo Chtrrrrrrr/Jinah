@@ -28,6 +28,14 @@ dependencies:
   intl: ^0.20.3
   dio: ^5.11.1
   webview_flutter: ^4.14.1
+  file_selector: ^1.1.0
+
+  # 截止提醒：Android 本地通知 + 桌面 toast
+  flutter_local_notifications: ^22.3.3
+  local_notifier: ^0.1.6
+
+  # 定时通知的时区支持
+  timezone: ^0.11.2
 
 dev_dependencies:
   flutter_test:

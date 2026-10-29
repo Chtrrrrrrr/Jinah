@@ -16,6 +16,9 @@ class SecretStore {
   static const _llmApiKey = 'llm_api_key';
   static const _llmBaseUrl = 'llm_base_url';
   static const _llmModel = 'llm_model';
+  static const _opToken = 'op_access_token';
+  static const _opTokenExpiresAt = 'op_token_expires_at';
+  static const _opUserId = 'op_user_id';
 
   Future<String?> read(String key) => _storage.read(key: key);
 
@@ -47,6 +50,23 @@ class SecretStore {
 
   Future<String?> get llmModel => read(_llmModel);
   Future<void> setLlmModel(String? v) => write(_llmModel, v);
+
+  Future<String?> get opToken => read(_opToken);
+  Future<void> setOpToken(String? v) => write(_opToken, v);
+
+  /// Unix 秒；0 = 未获取。
+  Future<int> get opTokenExpiresAt async =>
+      int.tryParse(await read(_opTokenExpiresAt) ?? '0') ?? 0;
+
+  /// 提前 60s 视为过期，避免请求途中失效。
+  bool isOpTokenFresh(int expiresAt) =>
+      DateTime.now().millisecondsSinceEpoch ~/ 1000 < expiresAt - 60;
+
+  Future<void> setOpTokenExpiresAt(int v) =>
+      write(_opTokenExpiresAt, v.toString());
+
+  Future<String?> get opUserId => read(_opUserId);
+  Future<void> setOpUserId(String? v) => write(_opUserId, v);
 }
 
 final secretStoreProvider = Provider<SecretStore>(

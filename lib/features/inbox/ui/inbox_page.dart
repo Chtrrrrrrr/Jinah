@@ -1,3 +1,4 @@
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -17,6 +18,7 @@ class InboxPage extends ConsumerStatefulWidget {
 class _InboxPageState extends ConsumerState<InboxPage> {
   final _input = TextEditingController();
   bool _parsing = false;
+  bool _lastFromImage = false;
   List<ParsedTask>? _tasks;
   final Set<int> _selected = {};
 
@@ -29,16 +31,48 @@ class _InboxPageState extends ConsumerState<InboxPage> {
   Future<void> _parse() async {
     final text = _input.text.trim();
     if (text.isEmpty || _parsing) return;
+    await _run(() => ref.read(aiParseServiceProvider).parse(text),
+        fromImage: false);
+  }
+
+  /// 选择截图并走多模态解析。
+  Future<void> _pickImage() async {
+    if (_parsing) return;
+    final picked = await openFile(acceptedTypeGroups: [
+      XTypeGroup(
+        label: '图片',
+        extensions: ['png', 'jpg', 'jpeg', 'webp'],
+        mimeTypes: ['image/*'],
+      ),
+    ]);
+    if (picked == null || !mounted) return;
+    final bytes = await picked.readAsBytes();
+    if (!mounted) return;
+    await _run(
+      () => ref
+          .read(aiParseServiceProvider)
+          .parseImage(bytes, mimeType: picked.mimeType ?? 'image/png'),
+      fromImage: true,
+    );
+  }
+
+  Future<void> _run(
+    Future<AiParseResult> Function() task, {
+    required bool fromImage,
+  }) async {
     setState(() {
       _parsing = true;
       _tasks = null;
       _selected.clear();
     });
 
-    final result = await ref.read(aiParseServiceProvider).parse(text);
+    final result = await task();
 
     if (!mounted) return;
-    setState(() => _parsing = false);
+    setState(() {
+      _parsing = false;
+      _lastFromImage = fromImage;
+    });
 
     switch (result) {
       case AiNeedsKey():
@@ -47,7 +81,7 @@ class _InboxPageState extends ConsumerState<InboxPage> {
         _toast(message);
       case AiParseOk(:final tasks):
         if (tasks.isEmpty) {
-          _toast('没有从通知中提取到任务');
+          _toast('没有从内容中提取到任务');
         } else {
           setState(() {
             _tasks = tasks;
@@ -73,7 +107,7 @@ class _InboxPageState extends ConsumerState<InboxPage> {
           if (t.submitMethod != null) t.submitMethod,
           if (t.due != null) '截止 ${dateFmt.format(t.due!.toLocal())}',
         ].join(' · '),
-        source: 'manual',
+        source: _lastFromImage ? 'screenshot' : 'manual',
       );
       added++;
     }
@@ -132,9 +166,9 @@ class _InboxPageState extends ConsumerState<InboxPage> {
                 ),
                 const SizedBox(width: 12),
                 TextButton.icon(
-                  onPressed: () {},
+                  onPressed: _parsing ? null : _pickImage,
                   icon: const Icon(Icons.screenshot, size: 16),
-                  label: const Text('导入截图（开发中）'),
+                  label: const Text('导入截图'),
                 ),
               ],
             ),

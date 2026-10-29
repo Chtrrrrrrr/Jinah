@@ -1,6 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- WebView 访问 1系统/Canvas 需要网络权限（release 构建必需） -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- 截止提醒：通知 + 重启后恢复排程 -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <application
         android:label="Jinah"
         android:name="${applicationName}"
@@ -32,6 +35,18 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <!-- 截止提醒：定时通知的接收器（含重启恢复） -->
+        <receiver
+            android:exported="false"
+            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />
+        <receiver
+            android:exported="false"
+            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED"/>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
+            </intent-filter>
+        </receiver>
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

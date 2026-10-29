@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -31,6 +33,7 @@ class AiParseService {
 
   final SecretStore _secrets;
 
+  /// 文本解析入口。
   Future<AiParseResult> parse(String rawText) async {
     final key = await _secrets.llmApiKey;
     if (key == null || key.isEmpty) {
@@ -38,11 +41,7 @@ class AiParseService {
     }
 
     try {
-      final client = LlmClient(
-        apiKey: key,
-        baseUrl: await _secrets.llmBaseUrl,
-        model: await _secrets.llmModel,
-      );
+      final client = await _client(key);
       final output = await client.chat(
         systemPrompt: buildSystemPrompt(),
         userPrompt: buildUserPrompt(rawText: rawText, now: DateTime.now()),
@@ -56,6 +55,37 @@ class AiParseService {
       return AiParseFailure('网络错误：${e.message ?? e.type.name}');
     }
   }
+
+  /// 截图解析入口（多模态）：作业通知截图或课表截图。
+  Future<AiParseResult> parseImage(List<int> bytes, {String? mimeType}) async {
+    final key = await _secrets.llmApiKey;
+    if (key == null || key.isEmpty) {
+      return const AiNeedsKey();
+    }
+
+    try {
+      final client = await _client(key);
+      final output = await client.chatWithImage(
+        systemPrompt: buildSystemPrompt(),
+        userText: buildImageUserPrompt(now: DateTime.now()),
+        imageBase64: base64Encode(bytes),
+        mimeType: mimeType ?? 'image/png',
+      );
+      return AiParseOk(parseTasks(output));
+    } on LlmException catch (e) {
+      return AiParseFailure(e.message);
+    } on TaskParseException catch (e) {
+      return AiParseFailure('AI 解析失败：${e.message}');
+    } on DioException catch (e) {
+      return AiParseFailure('网络错误：${e.message ?? e.type.name}');
+    }
+  }
+
+  Future<LlmClient> _client(String key) async => LlmClient(
+        apiKey: key,
+        baseUrl: await _secrets.llmBaseUrl,
+        model: await _secrets.llmModel,
+      );
 }
 
 final aiParseServiceProvider = Provider<AiParseService>(
